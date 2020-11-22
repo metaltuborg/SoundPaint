@@ -30,21 +30,22 @@ function acquireAudioStream(statusDiv, onCapture) {
     }
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(successVal => {
-        statusDiv.text("Captured the mic!");
+        statusDiv.text("Listening...");
         onCapture(successVal);
     }, failureVal => {
-        statusDiv.text("Failed to acquire the mic: [" + failureVal + "]")
+        statusDiv.text("Failed to capture the mic: [" + failureVal + "]");
     })
 }
 
 function gotStream(stream) {
-    var painter = new SoundPaint({});
+    var painter = new SoundPaint(painterSettings);
     painter.source = painter.context.createMediaStreamSource(stream);
     painter.source.connect(painter.analyser);
     painter.init();
 }
 
-var AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+let AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+let NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 class SoundPaint {
     constructor(settings) {
@@ -65,12 +66,20 @@ class SoundPaint {
         this.analyser.fftSize = this.fftsize;
         this.binCount = this.analyser.frequencyBinCount;
         this.freqDomain = new Uint8Array(this.binCount);
+        this.nyquist = this.context.sampleRate / 2;
+        this.frequencifier = this.nyquist / this.binCount;
 
+        this.maxFrequency = undefined;
+        this.colours = undefined;
         this.lastStep = undefined;
     }
 
     init() {
         this.binCountLog.text(this.binCount);
+
+        this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
+        this.colours = this.getColourMap();
+
         this.render();
     }
 
@@ -89,31 +98,116 @@ class SoundPaint {
     }
 
     renderOscilloscope(data) {
-        this.ctx.fillStyle = "rgb(200, 200, 200)";
-        this.ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let width = this.canvas.width;
+        let height = this.canvas.height;
 
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeStyle = "rgb(0, 0, 0)";
+        this.ctx.fillStyle = "rgb(32, 32, 32)";
+        this.ctx.fillRect(0, 0, width, height);
 
-        this.ctx.beginPath();
-
-        var sliceWidth = canvas.width * 1.0 / this.binCount;
+        var barWidth = (width / this.binCount) * 2.5;
+        var barHeight;
         var x = 0;
 
         for (var i = 0; i < this.binCount; i++) {
-            var v = data[i] / 128.0;
-            var y = v * canvas.height / 2;
+            barHeight = data[i];
 
-            if (i === 0) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
+            // this.ctx.fillStyle = 'rgb(' + (barHeight + 100) + ',50,50)';
+            this.ctx.fillStyle = this.colours[i];
+            this.ctx.fillRect(x, height - barHeight / 2, barWidth, barHeight / 2);
 
-            x += sliceWidth;
+            x += barWidth;
+        }
+    }
+
+    getColourMap() {
+        var colours = [this.binCount];
+        for (var i = 0; i < this.binCount; i++) {
+            // let audioFrequency = this.indexToAudioFrequency(i);
+            // let colourWavelength = this.audioFrequencyToColourWavelength(audioFrequency);
+            let colourWavelength = this.indexToColourWavelength(i);
+            let colour = this.nmToRGB(colourWavelength);
+            colours[i] = `rgb(${colour[0]},${colour[1]},${colour[2]})`;
         }
 
-        this.ctx.lineTo(canvas.width, canvas.height / 2);
-        this.ctx.stroke();
+        return colours;
+    }
+
+    indexToAudioFrequency(index) {
+        return Math.round(this.frequencifier * index);
+    }
+
+    audioFrequencyToColourWavelength(frequency) {
+        return 780 - Math.round(this.transform(frequency / this.maxFrequency) * 400 /* = 780 - 380 */);
+    }
+
+    indexToColourWavelength(index) {
+        return 780 - Math.round(this.transform(index / this.binCount) * 400 /* = 780 - 380 */);
+    }
+
+    transform(input) {
+        let t1 = 0.9954668;
+        let t2 = 0.9953756;
+        let t3 = 7.659294;
+        return t1 - t2 * Math.pow(Math.E, -t3 * input);
+    }
+
+    nmToRGB(wavelength) {
+        var Gamma = 0.80,
+            IntensityMax = 255,
+            factor, red, green, blue;
+        if ((wavelength >= 380) && (wavelength < 440)) {
+            red = -(wavelength - 440) / (440 - 380);
+            green = 0.0;
+            blue = 1.0;
+        } else if ((wavelength >= 440) && (wavelength < 490)) {
+            red = 0.0;
+            green = (wavelength - 440) / (490 - 440);
+            blue = 1.0;
+        } else if ((wavelength >= 490) && (wavelength < 510)) {
+            red = 0.0;
+            green = 1.0;
+            blue = -(wavelength - 510) / (510 - 490);
+        } else if ((wavelength >= 510) && (wavelength < 580)) {
+            red = (wavelength - 510) / (580 - 510);
+            green = 1.0;
+            blue = 0.0;
+        } else if ((wavelength >= 580) && (wavelength < 645)) {
+            red = 1.0;
+            green = -(wavelength - 645) / (645 - 580);
+            blue = 0.0;
+        } else if ((wavelength >= 645) && (wavelength < 781)) {
+            red = 1.0;
+            green = 0.0;
+            blue = 0.0;
+        } else {
+            red = 0.0;
+            green = 0.0;
+            blue = 0.0;
+        };
+        // Let the intensity fall off near the vision limits
+        if ((wavelength >= 380) && (wavelength < 420)) {
+            factor = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
+        } else if ((wavelength >= 420) && (wavelength < 701)) {
+            factor = 1.0;
+        } else if ((wavelength >= 701) && (wavelength < 781)) {
+            factor = 0.3 + 0.7 * (780 - wavelength) / (780 - 700);
+        } else {
+            factor = 0.0;
+        };
+        if (red !== 0) {
+            red = Math.round(IntensityMax * Math.pow(red * factor, Gamma));
+        }
+        if (green !== 0) {
+            green = Math.round(IntensityMax * Math.pow(green * factor, Gamma));
+        }
+        if (blue !== 0) {
+            blue = Math.round(IntensityMax * Math.pow(blue * factor, Gamma));
+        }
+        return [red, green, blue];
+    }
+
+    noteFromPitch(frequency) {
+        var noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+        return NoteStrings[(Math.round(noteNum) + 69) % 12];
     }
 }

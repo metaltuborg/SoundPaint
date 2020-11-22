@@ -1,2 +1,8 @@
 # SoundPaint
 Draw something pretty with sound!
+
+## References
+* https://academo.org/articles/spectrogram/
+* https://academo.org/demos/wavelength-to-colour-relationship/
+* https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode
+* https://www.flutopedia.com/sound_color.htm
