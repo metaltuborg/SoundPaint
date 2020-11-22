@@ -1,2 +1,2 @@
 # SoundPaint
-Draw something pretty with sound
+Draw something pretty with sound!

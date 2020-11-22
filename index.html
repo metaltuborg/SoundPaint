@@ -1,15 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>SoundPaint</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<script src="jquery.min.js"></script>
-        <script type="text/javascript" src="soundpaint.js"></script>
-    </head>
-    <body style="background-color: #000000;">
-        <script>
-            var painter = new SoundPaint({});
-        </script>
-        <div id="micStatus" style="color: #ffffff;">Asking for mic...</div>
-    </body>
+
+<head>
+    <title>SoundPaint</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="jquery.min.js"></script>
+    <script type="text/javascript" src="soundpaint.js"></script>
+    <style lang="css">
+        p {
+            color: #ffffff;
+        }
+    </style>
+</head>
+
+<body style="background-color: #000000;">
+    <p id="micStatus">Asking for mic...</p>
+    <div id="logContainer">
+        <p>Frequency bin count: <span id="binCount"></span></p>
+        <p>Animation time delta: <span id="delta"></span></p>
+        <p hidden>Frequency domain data: <span id="freqData"></span></p>
+    </div>
+    <div id="canvasContainer">
+        <canvas id="canvas" style="width: 500px; height: 500px;"></canvas>
+    </div>
+</body>
+
 </html>
