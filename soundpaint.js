@@ -49,11 +49,13 @@ let NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "
 
 class SoundPaint {
     constructor(settings) {
+        this.debug = typeof settings.debug === "undefined" ? false : settings.debug;
         // Resolution of the spectrum analyser. Must be a power of 2.
         // The frequency bin count is half of this resolution.
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
 
+        this.debugLog = $("#logContainer")
         this.binCountLog = $("#binCount");
         this.deltaLog = $("#delta");
         this.freqDataLog = $("#freqData");
@@ -75,7 +77,10 @@ class SoundPaint {
     }
 
     init() {
-        this.binCountLog.text(this.binCount);
+        if (this.debug) {
+            this.debugLog.removeAttr("hidden");
+            this.binCountLog.text(this.binCount);
+        }
 
         this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
         this.colours = this.getColourMap();
@@ -84,15 +89,16 @@ class SoundPaint {
     }
 
     render(timestamp) {
-        if (timestamp != undefined && this.lastStep != undefined) {
-            this.deltaLog.text(timestamp - this.lastStep);
-        }
-        this.lastStep = timestamp;
-
         this.analyser.getByteFrequencyData(this.freqDomain);
-        this.freqDataLog.text(this.freqDomain.join(" "));
-
         this.renderOscilloscope(this.freqDomain);
+
+        this.lastStep = timestamp;
+        if (this.debug) {
+            if (timestamp != undefined && this.lastStep != undefined) {
+                this.deltaLog.text(timestamp - this.lastStep);
+            }
+            this.freqDataLog.text(this.freqDomain.join(" "));
+        }
 
         window.requestAnimationFrame(this.render.bind(this));
     }
