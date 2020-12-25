@@ -54,18 +54,21 @@ class SoundPaint {
         // The frequency bin count is half of this resolution.
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
+        this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
 
-        this.debugLog = $("#logContainer")
+        this.debugLog = $("#logContainer");
         this.binCountLog = $("#binCount");
+        this.sampleRateLog = $("#sampleRate");
         this.deltaLog = $("#delta");
         this.freqDataLog = $("#freqData");
         this.canvas = $("#canvas")[0];
         this.ctx = this.canvas.getContext('2d');
 
-        this.context = new AudioContext();
+        this.context = new AudioContext({sampleRate: this.sampleRate});
         this.analyser = this.context.createAnalyser();
         this.analyser.smoothingTimeConstant = this.smoothingTimeConstant;
         this.analyser.fftSize = this.fftsize;
+
         this.binCount = this.analyser.frequencyBinCount;
         this.freqDomain = new Uint8Array(this.binCount);
         this.nyquist = this.context.sampleRate / 2;
@@ -80,6 +83,7 @@ class SoundPaint {
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
             this.binCountLog.text(this.binCount);
+            this.sampleRateLog.text(this.context.sampleRate);
         }
 
         this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
@@ -92,11 +96,11 @@ class SoundPaint {
         this.analyser.getByteFrequencyData(this.freqDomain);
         this.renderOscilloscope(this.freqDomain);
 
-        this.lastStep = timestamp;
         if (this.debug) {
             if (timestamp != undefined && this.lastStep != undefined) {
                 this.deltaLog.text(timestamp - this.lastStep);
             }
+            this.lastStep = timestamp;
             this.freqDataLog.text(this.freqDomain.join(" "));
         }
 
