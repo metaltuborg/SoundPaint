@@ -1,4 +1,4 @@
-$(document).ready(function () {
+$(document).ready(function() {
     acquireAudioStream($("#micStatus"), gotStream);
 });
 
@@ -12,7 +12,7 @@ function acquireAudioStream(statusDiv, onCapture) {
     // with getUserMedia as it would overwrite existing properties.
     // Here, we will just add the getUserMedia property if it's missing.
     if (navigator.mediaDevices.getUserMedia === undefined) {
-        navigator.mediaDevices.getUserMedia = function (constraints) {
+        navigator.mediaDevices.getUserMedia = function(constraints) {
             // First get ahold of the legacy getUserMedia, if present
             var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 
@@ -23,7 +23,7 @@ function acquireAudioStream(statusDiv, onCapture) {
             }
 
             // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
-            return new Promise(function (resolve, reject) {
+            return new Promise(function(resolve, reject) {
                 getUserMedia.call(navigator, constraints, resolve, reject);
             });
         }
@@ -61,11 +61,14 @@ class SoundPaint {
         this.sampleRateLog = $("#sampleRate");
         this.maxFrequencyLog = $("#maxFrequency");
         this.deltaLog = $("#delta");
+        this.cameraPosLog = $("#cameraPos");
         this.freqDataLog = $("#freqData");
+
         this.canvas = $("#canvas")[0];
+        this.colourMapContainer = $("#colourMap")[0];
         this.ctx = this.canvas.getContext('2d');
 
-        this.context = new AudioContext({sampleRate: this.sampleRate});
+        this.context = new AudioContext({ sampleRate: this.sampleRate });
         this.analyser = this.context.createAnalyser();
         this.analyser.smoothingTimeConstant = this.smoothingTimeConstant;
         this.analyser.fftSize = this.fftsize;
@@ -82,7 +85,9 @@ class SoundPaint {
 
     init() {
         this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
-        this.colours = this.produceColourMap();
+
+        var map = this.produceColourMap();
+        this.colours = map.colours;
 
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
@@ -91,6 +96,7 @@ class SoundPaint {
             this.maxFrequencyLog.text(this.maxFrequency);
         }
 
+        this.renderColourMap(map.data);
         this.render();
     }
 
@@ -123,25 +129,60 @@ class SoundPaint {
         for (var i = 0; i < this.binCount; i++) {
             barHeight = data[i];
 
-            // this.ctx.fillStyle = 'rgb(' + (barHeight + 100) + ',50,50)';
             this.ctx.fillStyle = this.colours[i];
-            this.ctx.fillRect(x, height - barHeight / 2, barWidth, barHeight / 2);
+            this.ctx.fillRect(x, height * (1 - barHeight / 255), barWidth, height * barHeight / 255);
 
             x += barWidth;
         }
     }
 
+    renderColourMap(data) {
+        var options = {
+            width: '100%',
+            height: '800px',
+            xCenter: '50%',
+            style: 'dot-color',
+            showPerspective: true,
+            showGrid: true,
+            showShadow: false,
+            keepAspectRatio: true,
+            verticalRatio: 1,
+            backgroundColor: {
+                fill: 'white',
+            },
+            xLabel: 'R',
+            yLabel: 'G',
+            zLabel: 'B',
+            cameraPosition: {
+                horizontal: 0.845,
+                vertical: 0.145,
+                distance: 3.657,
+            },
+        };
+
+        var graph3d = new vis.Graph3d(this.colourMapContainer, data, options);
+        graph3d.on('cameraPositionChange', (e) => { this.cameraPosLog.text([e.horizontal, e.vertical, e.distance]) });
+    }
+
     produceColourMap() {
+        var data = new vis.DataSet();
         var colours = [this.binCount];
+
         for (var i = 0; i < this.binCount; i++) {
             // let audioFrequency = this.indexToAudioFrequency(i);
             // let colourWavelength = this.audioFrequencyToColourWavelength(audioFrequency);
             let colourWavelength = this.indexToColourWavelength(i);
             let colour = this.nmToRGB(colourWavelength);
             colours[i] = `rgb(${colour[0]},${colour[1]},${colour[2]})`;
+            data.add({
+                x: colour[0],
+                y: colour[1],
+                z: colour[2],
+                style: i,
+            });
         }
 
-        return colours;
+        return { colours: colours, data: data };
     }
 
     indexToAudioFrequency(index) {
@@ -149,11 +190,11 @@ class SoundPaint {
     }
 
     audioFrequencyToColourWavelength(frequency) {
-        return 780 - Math.round(this.transform(frequency / this.maxFrequency) * 400 /* = 780 - 380 */);
+        return 780 - Math.round(this.transform(frequency / this.maxFrequency) * 400 /* = 780 - 380 */ );
     }
 
     indexToColourWavelength(index) {
-        return 780 - Math.round(this.transform(index / (this.binCount-1)) * 400 /* = 780 - 380 */);
+        return 780 - Math.round(this.transform(index / (this.binCount - 1)) * 400 /* = 780 - 380 */ );
     }
 
     transform(input) {
@@ -161,6 +202,7 @@ class SoundPaint {
         let t2 = 0.9953756;
         let t3 = 7.659294;
         return t1 - t2 * Math.pow(Math.E, -t3 * input);
+        // return input;
     }
 
     nmToRGB(wavelength) {

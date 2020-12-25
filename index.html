@@ -5,6 +5,7 @@
     <title>SoundPaint</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script type="text/javascript" src="jquery.min.js"></script>
+    <script type="text/javascript" src="vis/vis.min.js"></script>
     <script type="text/javascript">
         let painterSettings = {
             fftsize: Math.pow(2, 13),
@@ -19,18 +20,21 @@
             color: #ffffff;
         }
     </style>
+    <link rel="stylesheet" href="vis/vis.min.css">
 </head>
 
 <body style="background-color: #000000;">
     <div id="canvasContainer">
         <canvas id="canvas" style="width: 100%; height: 500px;"></canvas>
     </div>
+    <div id="colourMap"></div>
     <div id="logContainer" hidden>
         <p id="micStatus">Asking for mic...</p>
         <p>Frequency bin count: <span id="binCount"></span></p>
         <p>Analyser sample rate (Hz): <span id="sampleRate"></span></p>
         <p>Maximum frequency (Hz): <span id="maxFrequency"></span></p>
         <p>Animation time delta (ms): <span id="delta"></span></p>
+        <p>Camera position: <span id="cameraPos"></span></p>
         <p>Frequency domain data: <span id="freqData"></span></p>
     </div>
 </body>
