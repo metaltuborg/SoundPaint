@@ -59,6 +59,7 @@ class SoundPaint {
         this.debugLog = $("#logContainer");
         this.binCountLog = $("#binCount");
         this.sampleRateLog = $("#sampleRate");
+        this.maxFrequencyLog = $("#maxFrequency");
         this.deltaLog = $("#delta");
         this.freqDataLog = $("#freqData");
         this.canvas = $("#canvas")[0];
@@ -72,7 +73,7 @@ class SoundPaint {
         this.binCount = this.analyser.frequencyBinCount;
         this.freqDomain = new Uint8Array(this.binCount);
         this.nyquist = this.context.sampleRate / 2;
-        this.frequencifier = this.nyquist / this.binCount;
+        this.binWidth = this.nyquist / this.binCount;
 
         this.maxFrequency = undefined;
         this.colours = undefined;
@@ -80,14 +81,15 @@ class SoundPaint {
     }
 
     init() {
+        this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
+        this.colours = this.produceColourMap();
+
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
             this.binCountLog.text(this.binCount);
             this.sampleRateLog.text(this.context.sampleRate);
+            this.maxFrequencyLog.text(this.maxFrequency);
         }
-
-        this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
-        this.colours = this.getColourMap();
 
         this.render();
     }
@@ -129,7 +131,7 @@ class SoundPaint {
         }
     }
 
-    getColourMap() {
+    produceColourMap() {
         var colours = [this.binCount];
         for (var i = 0; i < this.binCount; i++) {
             // let audioFrequency = this.indexToAudioFrequency(i);
@@ -143,7 +145,7 @@ class SoundPaint {
     }
 
     indexToAudioFrequency(index) {
-        return Math.round(this.frequencifier * index);
+        return Math.round(this.binWidth * index);
     }
 
     audioFrequencyToColourWavelength(frequency) {
@@ -151,7 +153,7 @@ class SoundPaint {
     }
 
     indexToColourWavelength(index) {
-        return 780 - Math.round(this.transform(index / this.binCount) * 400 /* = 780 - 380 */);
+        return 780 - Math.round(this.transform(index / (this.binCount-1)) * 400 /* = 780 - 380 */);
     }
 
     transform(input) {

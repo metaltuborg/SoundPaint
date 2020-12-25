@@ -8,6 +8,9 @@
     <script type="text/javascript">
         let painterSettings = {
             fftsize: Math.pow(2, 13),
+            // smoothingTimeConstant: 0,
+            // sampleRate: 48000,
+            // debug: true,
         };
     </script>
     <script type="text/javascript" src="soundpaint.js"></script>
@@ -25,8 +28,9 @@
     <div id="logContainer" hidden>
         <p id="micStatus">Asking for mic...</p>
         <p>Frequency bin count: <span id="binCount"></span></p>
-        <p>Analyser sample rate: <span id="sampleRate"></span></p>
-        <p>Animation time delta: <span id="delta"></span></p>
+        <p>Analyser sample rate (Hz): <span id="sampleRate"></span></p>
+        <p>Maximum frequency (Hz): <span id="maxFrequency"></span></p>
+        <p>Animation time delta (ms): <span id="delta"></span></p>
         <p>Frequency domain data: <span id="freqData"></span></p>
     </div>
 </body>
