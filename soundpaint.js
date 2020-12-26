@@ -55,6 +55,7 @@ class SoundPaint {
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
         this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
+        this.maxFrequency = typeof settings.maxFrequency === "undefined" ? undefined : settings.maxFrequency;
 
         this.debugLog = $("#logContainer");
         this.binCountLog = $("#binCount");
@@ -65,8 +66,10 @@ class SoundPaint {
         this.freqDataLog = $("#freqData");
 
         this.canvas = $("#canvas")[0];
-        this.colourMapContainer = $("#colourMap")[0];
         this.ctx = this.canvas.getContext('2d');
+        this.blankSlate = $("#blankSlate")[0];
+        this.blankCtx = this.blankSlate.getContext('2d');
+        this.colourMapContainer = $("#colourMap");
 
         this.context = new AudioContext({ sampleRate: this.sampleRate });
         this.analyser = this.context.createAnalyser();
@@ -77,26 +80,33 @@ class SoundPaint {
         this.freqDomain = new Uint8Array(this.binCount);
         this.nyquist = this.context.sampleRate / 2;
         this.binWidth = this.nyquist / this.binCount;
+        this.maxBins = this.binCount;
 
-        this.maxFrequency = undefined;
-        this.colours = undefined;
+        this.binColours = undefined;
         this.lastStep = undefined;
     }
 
     init() {
-        this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
+        if (this.maxFrequency != undefined) {
+            this.maxBins = Math.round(this.maxFrequency / this.binWidth);
+        } else {
+            this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
+        }
 
-        var map = this.produceColourMap();
-        this.colours = map.colours;
+        var colourMap = this.produceColourMap();
+        this.binColours = colourMap.map((rgb) => {
+            return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        });
 
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
             this.binCountLog.text(this.binCount);
             this.sampleRateLog.text(this.context.sampleRate);
             this.maxFrequencyLog.text(this.maxFrequency);
+            this.renderColourMap(colourMap);
         }
 
-        this.renderColourMap(map.data);
+        this.renderBlankSlate();
         this.render();
     }
 
@@ -116,27 +126,72 @@ class SoundPaint {
     }
 
     renderOscilloscope(data) {
-        let width = this.canvas.width;
-        let height = this.canvas.height;
+        this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
+        this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+        this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        let width = this.canvas.clientWidth;
+        let height = this.canvas.clientHeight;
 
         this.ctx.fillStyle = "rgb(32, 32, 32)";
         this.ctx.fillRect(0, 0, width, height);
 
-        var barWidth = (width / this.binCount) * 2.5;
+        var barWidth = (width / this.maxBins);
         var barHeight;
         var x = 0;
 
-        for (var i = 0; i < this.binCount; i++) {
+        for (var i = 0; i < this.maxBins; i++) {
             barHeight = data[i];
 
-            this.ctx.fillStyle = this.colours[i];
+            this.ctx.fillStyle = this.binColours[i];
             this.ctx.fillRect(x, height * (1 - barHeight / 255), barWidth, height * barHeight / 255);
 
             x += barWidth;
         }
     }
 
-    renderColourMap(data) {
+    renderBlankSlate() {
+        this.blankSlate.width = this.blankSlate.clientWidth * window.devicePixelRatio;
+        this.blankSlate.height = this.blankSlate.clientHeight * window.devicePixelRatio;
+        this.blankCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        let width = this.blankSlate.clientWidth;
+        let height = this.blankSlate.clientHeight;
+        let gap = Math.round(this.maxBins * 75 / width); // 60 = 15px * 5 => 1 label each 5x label heights
+
+        this.blankCtx.fillStyle = "rgb(32, 32, 32)";
+        this.blankCtx.fillRect(0, 0, width, height);
+        this.blankCtx.font = "15px Georgia";
+
+        var barWidth = (width / this.maxBins);
+        var x = 0;
+
+        for (var i = 0; i < this.maxBins; i++) {
+            this.blankCtx.fillStyle = this.binColours[i];
+            this.blankCtx.fillRect(x, 0, barWidth, height);
+            x += barWidth;
+        }
+        for (var i = 0; i < this.maxBins; i += gap) {
+            this.blankCtx.save();
+            this.blankCtx.translate(i * barWidth + 10, height - 5);
+            this.blankCtx.rotate(-0.5 * Math.PI);
+            this.blankCtx.strokeStyle = "rgb(255, 255, 255)";
+            this.blankCtx.strokeText(Math.round(i * this.binWidth).toString(), 0, 0);
+            this.blankCtx.restore();
+        }
+    }
+
+    renderColourMap(binColours) {
+        var data = new vis.DataSet();
+        binColours.forEach((rgb, i) => {
+            data.add({
+                x: rgb[0],
+                y: rgb[1],
+                z: rgb[2],
+                style: i,
+            });
+        });
+
         var options = {
             width: '100%',
             height: '800px',
@@ -148,7 +203,7 @@ class SoundPaint {
             keepAspectRatio: true,
             verticalRatio: 1,
             backgroundColor: {
-                fill: 'white',
+                fill: 'rgb(191, 191, 191)',
             },
             xLabel: 'R',
             yLabel: 'G',
@@ -160,29 +215,20 @@ class SoundPaint {
             },
         };
 
-        var graph3d = new vis.Graph3d(this.colourMapContainer, data, options);
+        this.colourMapContainer.removeAttr("hidden");
+        var graph3d = new vis.Graph3d(this.colourMapContainer[0], data, options);
         graph3d.on('cameraPositionChange', (e) => { this.cameraPosLog.text([e.horizontal, e.vertical, e.distance]) });
     }
 
     produceColourMap() {
-        var data = new vis.DataSet();
-        var colours = [this.binCount];
+        var colours = [this.maxBins];
 
-        for (var i = 0; i < this.binCount; i++) {
-            // let audioFrequency = this.indexToAudioFrequency(i);
-            // let colourWavelength = this.audioFrequencyToColourWavelength(audioFrequency);
+        for (var i = 0; i < this.maxBins; i++) {
             let colourWavelength = this.indexToColourWavelength(i);
-            let colour = this.nmToRGB(colourWavelength);
-            colours[i] = `rgb(${colour[0]},${colour[1]},${colour[2]})`;
-            data.add({
-                x: colour[0],
-                y: colour[1],
-                z: colour[2],
-                style: i,
-            });
+            colours[i] = this.nmToRGB(colourWavelength);
         }
 
-        return { colours: colours, data: data };
+        return colours;
     }
 
     indexToAudioFrequency(index) {
@@ -190,19 +236,11 @@ class SoundPaint {
     }
 
     audioFrequencyToColourWavelength(frequency) {
-        return 780 - Math.round(this.transform(frequency / this.maxFrequency) * 400 /* = 780 - 380 */ );
+        return 780 - Math.round((frequency / this.maxFrequency) * 400);
     }
 
     indexToColourWavelength(index) {
-        return 780 - Math.round(this.transform(index / (this.binCount - 1)) * 400 /* = 780 - 380 */ );
-    }
-
-    transform(input) {
-        let t1 = 0.9954668;
-        let t2 = 0.9953756;
-        let t3 = 7.659294;
-        return t1 - t2 * Math.pow(Math.E, -t3 * input);
-        // return input;
+        return 780 - Math.round((index / (this.maxBins - 1)) * 400);
     }
 
     nmToRGB(wavelength) {
