@@ -3,26 +3,17 @@ $(document).ready(function() {
 });
 
 function acquireAudioStream(statusDiv, onCapture) {
-    // Older browsers might not implement mediaDevices at all, so we set an empty object first
     if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
     }
 
-    // Some browsers partially implement mediaDevices. We can't just assign an object
-    // with getUserMedia as it would overwrite existing properties.
-    // Here, we will just add the getUserMedia property if it's missing.
     if (navigator.mediaDevices.getUserMedia === undefined) {
         navigator.mediaDevices.getUserMedia = function(constraints) {
-            // First get ahold of the legacy getUserMedia, if present
             var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-
-            // Some browsers just don't implement it - return a rejected promise with an error
-            // to keep a consistent interface
             if (!getUserMedia) {
                 return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
             }
 
-            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
             return new Promise(function(resolve, reject) {
                 getUserMedia.call(navigator, constraints, resolve, reject);
             });
@@ -50,8 +41,6 @@ let NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "
 class SoundPaint {
     constructor(settings) {
         this.debug = typeof settings.debug === "undefined" ? false : settings.debug;
-        // Resolution of the spectrum analyser. Must be a power of 2.
-        // The frequency bin count is half of this resolution.
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
         this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
@@ -157,7 +146,7 @@ class SoundPaint {
 
         let width = this.blankSlate.clientWidth;
         let height = this.blankSlate.clientHeight;
-        let gap = Math.round(this.maxBins * 75 / width); // 60 = 15px * 5 => 1 label each 5x label heights
+        let gap = Math.round(this.maxBins * 75 / width); // = 5*15px => 1 label each 5x label heights
 
         this.blankCtx.fillStyle = "rgb(32, 32, 32)";
         this.blankCtx.fillRect(0, 0, width, height);
