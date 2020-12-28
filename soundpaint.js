@@ -42,14 +42,15 @@ class SoundPaint {
     constructor(settings) {
         this.debug = typeof settings.debug === "undefined" ? false : settings.debug;
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
-        this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
         this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
         this.maxFrequency = typeof settings.maxFrequency === "undefined" ? undefined : settings.maxFrequency;
+        this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
 
         this.debugLog = $("#logContainer");
         this.binCountLog = $("#binCount");
         this.sampleRateLog = $("#sampleRate");
         this.maxFrequencyLog = $("#maxFrequency");
+        this.maxBinsLog = $("#maxBins");
         this.deltaLog = $("#delta");
         this.cameraPosLog = $("#cameraPos");
         this.freqDataLog = $("#freqData");
@@ -69,19 +70,18 @@ class SoundPaint {
         this.freqDomain = new Uint8Array(this.binCount);
         this.nyquist = this.context.sampleRate / 2;
         this.binWidth = this.nyquist / this.binCount;
+
         this.maxBins = this.binCount;
+        if (this.maxFrequency != undefined) {
+            this.maxBins = Math.min(this.binCount, Math.floor(this.maxFrequency / this.binWidth));
+        }
+        this.maxFrequency = this.indexToAudioFrequency(this.maxBins);
 
         this.binColours = undefined;
         this.lastStep = undefined;
     }
 
     init() {
-        if (this.maxFrequency != undefined) {
-            this.maxBins = Math.round(this.maxFrequency / this.binWidth);
-        } else {
-            this.maxFrequency = this.indexToAudioFrequency(this.binCount - 1);
-        }
-
         var colourMap = this.produceColourMap();
         this.binColours = colourMap.map((rgb) => {
             return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
@@ -92,6 +92,7 @@ class SoundPaint {
             this.binCountLog.text(this.binCount);
             this.sampleRateLog.text(this.context.sampleRate);
             this.maxFrequencyLog.text(this.maxFrequency);
+            this.maxBinsLog.text(this.maxBins);
             this.renderColourMap(colourMap);
         }
 
@@ -108,7 +109,7 @@ class SoundPaint {
                 this.deltaLog.text(timestamp - this.lastStep);
             }
             this.lastStep = timestamp;
-            this.freqDataLog.text(this.freqDomain.join(" "));
+            this.freqDataLog.text(this.freqDomain.slice(0, this.maxBins).join(" "));
         }
 
         window.requestAnimationFrame(this.render.bind(this));
@@ -146,7 +147,7 @@ class SoundPaint {
 
         let width = this.blankSlate.clientWidth;
         let height = this.blankSlate.clientHeight;
-        let gap = Math.round(this.maxBins * 75 / width); // = 5*15px => 1 label each 5x label heights
+        let gap = Math.floor(this.maxBins * 75 / width); // = 5*15px => 1 label each 5x label heights
 
         this.blankCtx.fillStyle = "rgb(32, 32, 32)";
         this.blankCtx.fillRect(0, 0, width, height);
@@ -165,7 +166,7 @@ class SoundPaint {
             this.blankCtx.translate(i * barWidth + 10, height - 5);
             this.blankCtx.rotate(-0.5 * Math.PI);
             this.blankCtx.strokeStyle = "rgb(255, 255, 255)";
-            this.blankCtx.strokeText(Math.round(i * this.binWidth).toString(), 0, 0);
+            this.blankCtx.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
             this.blankCtx.restore();
         }
     }
@@ -221,15 +222,15 @@ class SoundPaint {
     }
 
     indexToAudioFrequency(index) {
-        return Math.round(this.binWidth * index);
+        return Math.floor(this.binWidth * index);
     }
 
     audioFrequencyToColourWavelength(frequency) {
-        return 780 - Math.round((frequency / this.maxFrequency) * 400);
+        return 780 - Math.floor((frequency / this.maxFrequency) * 400);
     }
 
     indexToColourWavelength(index) {
-        return 780 - Math.round((index / (this.maxBins - 1)) * 400);
+        return 780 - Math.floor((index / (this.maxBins - 1)) * 400);
     }
 
     nmToRGB(wavelength) {

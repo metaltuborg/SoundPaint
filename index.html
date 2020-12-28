@@ -9,9 +9,9 @@
     <script type="text/javascript">
         let painterSettings = {
             fftsize: Math.pow(2, 13),
-            // smoothingTimeConstant: 0,
-            // sampleRate: 48000,
+            sampleRate: 48000,
             maxFrequency: 7500,
+            // smoothingTimeConstant: 0,
             // debug: true,
         };
     </script>
@@ -37,6 +37,7 @@
         <p>Frequency bin count: <span id="binCount"></span></p>
         <p>Analyser sample rate (Hz): <span id="sampleRate"></span></p>
         <p>Maximum frequency (Hz): <span id="maxFrequency"></span></p>
+        <p>Useable bin count: <span id="maxBins"></span></p>
         <p>Animation time delta (ms): <span id="delta"></span></p>
         <p>Camera position: <span id="cameraPos"></span></p>
         <p>Frequency domain data: <span id="freqData"></span></p>
