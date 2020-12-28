@@ -40,6 +40,7 @@ const MinusHalfPi = -0.5 * Math.PI;
 const Nero = "rgb(32, 32, 32)";
 const White = "rgb(255, 255, 255)";
 const BlankSlateGeorgia = "15px Georgia";
+const ZScoreInterval = 100;
 
 class SoundPaint {
     constructor(settings) {
@@ -74,13 +75,23 @@ class SoundPaint {
         this.sampleRateLog = $("#sampleRate");
         this.maxFrequencyLog = $("#maxFrequency");
         this.maxBinsLog = $("#maxBins");
+        this.timestampLog = $("#timestamp");
         this.deltaLog = $("#delta");
         this.cameraPosLog = $("#cameraPos");
         this.freqDataLog = $("#freqData");
 
         this.canvas = new FrequencyDomainCanvas($("#canvas")[0], this.maxBins).init();
+        this.signals = new FrequencyDomainCanvas($("#signalsCanvas")[0], this.maxBins).init();
         this.blankSlate = new FrequencyDomainCanvas($("#blankSlate")[0], this.maxBins).init();
         this.colourMapContainer = $("#colourMap");
+
+        // Set up other properties.
+        this.scorer = new ZScore({
+            lag: 20,
+            threshold: 3,
+            influence: 0.5,
+        });
+        this.nextZScoreStep = ZScoreInterval;
 
         // Declare other properties in advance.
         this.binColours = undefined;
@@ -108,14 +119,22 @@ class SoundPaint {
 
     render(timestamp) {
         this.analyser.getByteFrequencyData(this.freqDomain);
-        this.renderOscilloscope(this.freqDomain);
+        let frequencyData = this.freqDomain.slice(0, this.maxBins);
+
+        this.renderOscilloscope(frequencyData);
+
+        // if (timestamp >= this.nextZScoreStep) {
+        this.renderSignals(this.scorer.signals(frequencyData));
+        // this.nextZScoreStep += ZScoreInterval;
+        // }
 
         if (this.debug) {
             if (timestamp != undefined && this.lastStep != undefined) {
+                this.timestampLog.text(timestamp);
                 this.deltaLog.text(timestamp - this.lastStep);
             }
             this.lastStep = timestamp;
-            this.freqDataLog.text(this.freqDomain.slice(0, this.maxBins).join(" "));
+            this.freqDataLog.text(frequencyData.join(" "));
         }
 
         window.requestAnimationFrame(this.render.bind(this));
@@ -124,26 +143,32 @@ class SoundPaint {
     renderOscilloscope(data) {
         const barHeightFactor = this.canvas.height / 255;
 
-        this.canvas.context.fillStyle = Nero;
-        this.canvas.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.canvas.blank(Nero);
 
         for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.canvas.barWidth) {
             barHeight = barHeightFactor * data[i];
-            this.canvas.context.fillStyle = this.binColours[i];
-            this.canvas.context.fillRect(x, this.canvas.height - barHeight, this.canvas.barWidth, barHeight);
+            this.canvas.flexbar(x, this.canvas.height - barHeight, this.canvas.barWidth, barHeight, this.binColours[i]);
+        }
+    }
+
+    renderSignals(data) {
+        this.signals.blank(Nero);
+
+        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.signals.barWidth) {
+            if (data[i] > 0) {
+                this.signals.fullbar(x, this.binColours[i]);
+            }
         }
     }
 
     renderBlankSlate() {
         const gap = Math.floor(this.maxBins * 75 / this.blankSlate.width); // = 5*15px => 1 label each 5x label heights
 
-        this.blankSlate.context.fillStyle = Nero;
-        this.blankSlate.context.fillRect(0, 0, this.blankSlate.width, this.blankSlate.height);
+        this.blankSlate.blank(Nero);
         this.blankSlate.context.font = BlankSlateGeorgia;
 
         for (let i = 0, x = 0; i < this.maxBins; i++, x += this.blankSlate.barWidth) {
-            this.blankSlate.context.fillStyle = this.binColours[i];
-            this.blankSlate.context.fillRect(x, 0, this.blankSlate.barWidth, this.blankSlate.height);
+            this.blankSlate.fullbar(x, this.binColours[i]);
         }
         for (let i = 0; i < this.maxBins; i += gap) {
             this.blankSlate.context.save();

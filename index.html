@@ -12,10 +12,11 @@
             sampleRate: 48000,
             maxFrequency: 7500,
             // smoothingTimeConstant: 0,
-            debug: true,
+            // debug: true,
         };
     </script>
     <script type="text/javascript" src="colour-utility.js"></script>
+    <script type="text/javascript" src="smoothed-z-score.js"></script>
     <script type="text/javascript" src="frequency-domain-canvas.js"></script>
     <script type="text/javascript" src="sound-paint.js"></script>
     <style lang="css">
@@ -30,6 +31,9 @@
     <div id="canvasContainer">
         <canvas id="canvas" style="width: 100%; height: 500px;"></canvas>
     </div>
+    <div id="signalsContainer">
+        <canvas id="signalsCanvas" style="width: 100%; height: 100px;"></canvas>
+    </div>
     <div id="blankSlateContainer">
         <canvas id="blankSlate" style="width: 100%; height: 75px;"></canvas>
     </div>
@@ -40,6 +44,7 @@
         <p>Analyser sample rate (Hz): <span id="sampleRate"></span></p>
         <p>Maximum frequency (Hz): <span id="maxFrequency"></span></p>
         <p>Useable bin count: <span id="maxBins"></span></p>
+        <p>Animation timestamp (ms): <span id="timestamp"></span></p>
         <p>Animation time delta (ms): <span id="delta"></span></p>
         <p>Camera position: <span id="cameraPos"></span></p>
         <p>Frequency domain data: <span id="freqData"></span></p>
