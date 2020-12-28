@@ -1,18 +1,11 @@
-class Utility {
+class ColourUtility {
     static NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-    static setUpCanvasForHighPPI(canvas, context) {
-        canvas.width = canvas.clientWidth * window.devicePixelRatio;
-        canvas.height = canvas.clientHeight * window.devicePixelRatio;
-        context.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-        return { width: canvas.clientWidth, height: canvas.clientHeight };
-    }
+    static Gamma = 0.80;
+    static MaxIntensity = 255;
 
     static nmToRGB(wavelength) {
-        var Gamma = 0.80,
-            IntensityMax = 255,
-            factor, red, green, blue;
+        let factor, red, green, blue;
+
         if ((wavelength >= 380) && (wavelength < 440)) {
             red = -(wavelength - 440) / (440 - 380);
             green = 0.0;
@@ -42,6 +35,7 @@ class Utility {
             green = 0.0;
             blue = 0.0;
         };
+
         // Let the intensity fall off near the vision limits
         if ((wavelength >= 380) && (wavelength < 420)) {
             factor = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
@@ -53,19 +47,20 @@ class Utility {
             factor = 0.0;
         };
         if (red !== 0) {
-            red = Math.round(IntensityMax * Math.pow(red * factor, Gamma));
+            red = Math.round(ColourUtility.MaxIntensity * Math.pow(red * factor, ColourUtility.Gamma));
         }
         if (green !== 0) {
-            green = Math.round(IntensityMax * Math.pow(green * factor, Gamma));
+            green = Math.round(ColourUtility.MaxIntensity * Math.pow(green * factor, ColourUtility.Gamma));
         }
         if (blue !== 0) {
-            blue = Math.round(IntensityMax * Math.pow(blue * factor, Gamma));
+            blue = Math.round(ColourUtility.MaxIntensity * Math.pow(blue * factor, ColourUtility.Gamma));
         }
+
         return [red, green, blue];
     }
 
     noteFromPitch(frequency) {
-        var noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
-        return Utility.NoteStrings[(Math.round(noteNum) + 69) % 12];
+        const noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+        return ColourUtility.NoteStrings[(Math.round(noteNum) + 69) % 12];
     }
 }

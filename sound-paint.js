@@ -9,7 +9,7 @@ function acquireAudioStream(statusDiv, onCapture) {
 
     if (navigator.mediaDevices.getUserMedia === undefined) {
         navigator.mediaDevices.getUserMedia = function(constraints) {
-            var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            const getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
             if (!getUserMedia) {
                 return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
             }
@@ -29,42 +29,34 @@ function acquireAudioStream(statusDiv, onCapture) {
 }
 
 function gotStream(stream) {
-    var painter = new SoundPaint(painterSettings);
+    const painter = new SoundPaint(painterSettings);
     painter.source = painter.context.createMediaStreamSource(stream);
     painter.source.connect(painter.analyser);
     painter.init();
 }
 
-let AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+const AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+const MinusHalfPi = -0.5 * Math.PI;
+const Nero = "rgb(32, 32, 32)";
+const White = "rgb(255, 255, 255)";
+const BlankSlateGeorgia = "15px Georgia";
 
 class SoundPaint {
     constructor(settings) {
+        // Infer the setttings.
         this.debug = typeof settings.debug === "undefined" ? false : settings.debug;
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
         this.maxFrequency = typeof settings.maxFrequency === "undefined" ? undefined : settings.maxFrequency;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
 
-        this.debugLog = $("#logContainer");
-        this.binCountLog = $("#binCount");
-        this.sampleRateLog = $("#sampleRate");
-        this.maxFrequencyLog = $("#maxFrequency");
-        this.maxBinsLog = $("#maxBins");
-        this.deltaLog = $("#delta");
-        this.cameraPosLog = $("#cameraPos");
-        this.freqDataLog = $("#freqData");
-
-        this.canvas = $("#canvas")[0];
-        this.ctx = this.canvas.getContext('2d');
-        this.blankSlate = $("#blankSlate")[0];
-        this.blankCtx = this.blankSlate.getContext('2d');
-        this.colourMapContainer = $("#colourMap");
-
+        // Set up the audio context & analyser.
         this.context = new AudioContext({ sampleRate: this.sampleRate });
         this.analyser = this.context.createAnalyser();
         this.analyser.smoothingTimeConstant = this.smoothingTimeConstant;
         this.analyser.fftSize = this.fftsize;
 
+        // Set up the frequency domain parameters.
         this.binCount = this.analyser.frequencyBinCount;
         this.freqDomain = new Uint8Array(this.binCount);
         this.nyquist = this.context.sampleRate / 2;
@@ -76,12 +68,27 @@ class SoundPaint {
         }
         this.maxFrequency = this.indexToAudioFrequency(this.maxBins);
 
+        // Set up output containers.
+        this.debugLog = $("#logContainer");
+        this.binCountLog = $("#binCount");
+        this.sampleRateLog = $("#sampleRate");
+        this.maxFrequencyLog = $("#maxFrequency");
+        this.maxBinsLog = $("#maxBins");
+        this.deltaLog = $("#delta");
+        this.cameraPosLog = $("#cameraPos");
+        this.freqDataLog = $("#freqData");
+
+        this.canvas = new FrequencyDomainCanvas($("#canvas")[0], this.maxBins).init();
+        this.blankSlate = new FrequencyDomainCanvas($("#blankSlate")[0], this.maxBins).init();
+        this.colourMapContainer = $("#colourMap");
+
+        // Declare other properties in advance.
         this.binColours = undefined;
         this.lastStep = undefined;
     }
 
     init() {
-        var colourMap = this.produceColourMap();
+        const colourMap = this.produceColourMap();
         this.binColours = colourMap.map((rgb) => {
             return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
         });
@@ -115,68 +122,51 @@ class SoundPaint {
     }
 
     renderOscilloscope(data) {
-        let dimensions = Utility.setUpCanvasForHighPPI(this.canvas, this.ctx);
-        let width = dimensions.width;
-        let height = dimensions.height;
+        const barHeightFactor = this.canvas.height / 255;
 
-        this.ctx.fillStyle = "rgb(32, 32, 32)";
-        this.ctx.fillRect(0, 0, width, height);
+        this.canvas.context.fillStyle = Nero;
+        this.canvas.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        var barWidth = (width / this.maxBins);
-        var barHeight;
-        var x = 0;
-
-        for (var i = 0; i < this.maxBins; i++) {
-            barHeight = data[i];
-
-            this.ctx.fillStyle = this.binColours[i];
-            this.ctx.fillRect(x, height * (1 - barHeight / 255), barWidth, height * barHeight / 255);
-
-            x += barWidth;
+        for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.canvas.barWidth) {
+            barHeight = barHeightFactor * data[i];
+            this.canvas.context.fillStyle = this.binColours[i];
+            this.canvas.context.fillRect(x, this.canvas.height - barHeight, this.canvas.barWidth, barHeight);
         }
     }
 
     renderBlankSlate() {
-        let dimensions = Utility.setUpCanvasForHighPPI(this.blankSlate, this.blankCtx);
-        let width = dimensions.width;
-        let height = dimensions.height;
+        const gap = Math.floor(this.maxBins * 75 / this.blankSlate.width); // = 5*15px => 1 label each 5x label heights
 
-        let gap = Math.floor(this.maxBins * 75 / width); // = 5*15px => 1 label each 5x label heights
+        this.blankSlate.context.fillStyle = Nero;
+        this.blankSlate.context.fillRect(0, 0, this.blankSlate.width, this.blankSlate.height);
+        this.blankSlate.context.font = BlankSlateGeorgia;
 
-        this.blankCtx.fillStyle = "rgb(32, 32, 32)";
-        this.blankCtx.fillRect(0, 0, width, height);
-        this.blankCtx.font = "15px Georgia";
-
-        var barWidth = (width / this.maxBins);
-        var x = 0;
-
-        for (var i = 0; i < this.maxBins; i++) {
-            this.blankCtx.fillStyle = this.binColours[i];
-            this.blankCtx.fillRect(x, 0, barWidth, height);
-            x += barWidth;
+        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.blankSlate.barWidth) {
+            this.blankSlate.context.fillStyle = this.binColours[i];
+            this.blankSlate.context.fillRect(x, 0, this.blankSlate.barWidth, this.blankSlate.height);
         }
-        for (var i = 0; i < this.maxBins; i += gap) {
-            this.blankCtx.save();
-            this.blankCtx.translate(i * barWidth + 10, height - 5);
-            this.blankCtx.rotate(-0.5 * Math.PI);
-            this.blankCtx.strokeStyle = "rgb(255, 255, 255)";
-            this.blankCtx.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
-            this.blankCtx.restore();
+        for (let i = 0; i < this.maxBins; i += gap) {
+            this.blankSlate.context.save();
+            this.blankSlate.context.translate(i * this.blankSlate.barWidth + 10, this.blankSlate.height - 5);
+            this.blankSlate.context.rotate(MinusHalfPi);
+            this.blankSlate.context.strokeStyle = White;
+            this.blankSlate.context.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
+            this.blankSlate.context.restore();
         }
     }
 
     renderColourMap(binColours) {
-        var data = new vis.DataSet();
+        let data = new vis.DataSet();
         binColours.forEach((rgb, i) => {
             data.add({
                 x: rgb[0],
                 y: rgb[1],
                 z: rgb[2],
-                style: i,
+                style: Math.floor(i * this.binWidth),
             });
         });
 
-        var options = {
+        const options = {
             width: '100%',
             height: '800px',
             xCenter: '50%',
@@ -200,16 +190,18 @@ class SoundPaint {
         };
 
         this.colourMapContainer.removeAttr("hidden");
-        var graph3d = new vis.Graph3d(this.colourMapContainer[0], data, options);
-        graph3d.on('cameraPositionChange', (e) => { this.cameraPosLog.text([e.horizontal, e.vertical, e.distance]) });
+        const graph3d = new vis.Graph3d(this.colourMapContainer[0], data, options);
+        if (this.debug) {
+            graph3d.on('cameraPositionChange', (e) => { this.cameraPosLog.text([e.horizontal, e.vertical, e.distance]) });
+        }
     }
 
     produceColourMap() {
-        var colours = [this.maxBins];
+        const colours = [this.maxBins];
 
-        for (var i = 0; i < this.maxBins; i++) {
-            let colourWavelength = this.indexToColourWavelength(i);
-            colours[i] = Utility.nmToRGB(colourWavelength);
+        for (let i = 0; i < this.maxBins; i++) {
+            const colourWavelength = this.indexToColourWavelength(i);
+            colours[i] = ColourUtility.nmToRGB(colourWavelength);
         }
 
         return colours;
