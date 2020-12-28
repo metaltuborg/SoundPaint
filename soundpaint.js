@@ -36,7 +36,6 @@ function gotStream(stream) {
 }
 
 let AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
-let NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 class SoundPaint {
     constructor(settings) {
@@ -116,12 +115,9 @@ class SoundPaint {
     }
 
     renderOscilloscope(data) {
-        this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
-        this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
-        this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-        let width = this.canvas.clientWidth;
-        let height = this.canvas.clientHeight;
+        let dimensions = Utility.setUpCanvasForHighPPI(this.canvas, this.ctx);
+        let width = dimensions.width;
+        let height = dimensions.height;
 
         this.ctx.fillStyle = "rgb(32, 32, 32)";
         this.ctx.fillRect(0, 0, width, height);
@@ -141,12 +137,10 @@ class SoundPaint {
     }
 
     renderBlankSlate() {
-        this.blankSlate.width = this.blankSlate.clientWidth * window.devicePixelRatio;
-        this.blankSlate.height = this.blankSlate.clientHeight * window.devicePixelRatio;
-        this.blankCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        let dimensions = Utility.setUpCanvasForHighPPI(this.blankSlate, this.blankCtx);
+        let width = dimensions.width;
+        let height = dimensions.height;
 
-        let width = this.blankSlate.clientWidth;
-        let height = this.blankSlate.clientHeight;
         let gap = Math.floor(this.maxBins * 75 / width); // = 5*15px => 1 label each 5x label heights
 
         this.blankCtx.fillStyle = "rgb(32, 32, 32)";
@@ -215,7 +209,7 @@ class SoundPaint {
 
         for (var i = 0; i < this.maxBins; i++) {
             let colourWavelength = this.indexToColourWavelength(i);
-            colours[i] = this.nmToRGB(colourWavelength);
+            colours[i] = Utility.nmToRGB(colourWavelength);
         }
 
         return colours;
@@ -231,65 +225,5 @@ class SoundPaint {
 
     indexToColourWavelength(index) {
         return 780 - Math.floor((index / (this.maxBins - 1)) * 400);
-    }
-
-    nmToRGB(wavelength) {
-        var Gamma = 0.80,
-            IntensityMax = 255,
-            factor, red, green, blue;
-        if ((wavelength >= 380) && (wavelength < 440)) {
-            red = -(wavelength - 440) / (440 - 380);
-            green = 0.0;
-            blue = 1.0;
-        } else if ((wavelength >= 440) && (wavelength < 490)) {
-            red = 0.0;
-            green = (wavelength - 440) / (490 - 440);
-            blue = 1.0;
-        } else if ((wavelength >= 490) && (wavelength < 510)) {
-            red = 0.0;
-            green = 1.0;
-            blue = -(wavelength - 510) / (510 - 490);
-        } else if ((wavelength >= 510) && (wavelength < 580)) {
-            red = (wavelength - 510) / (580 - 510);
-            green = 1.0;
-            blue = 0.0;
-        } else if ((wavelength >= 580) && (wavelength < 645)) {
-            red = 1.0;
-            green = -(wavelength - 645) / (645 - 580);
-            blue = 0.0;
-        } else if ((wavelength >= 645) && (wavelength < 781)) {
-            red = 1.0;
-            green = 0.0;
-            blue = 0.0;
-        } else {
-            red = 0.0;
-            green = 0.0;
-            blue = 0.0;
-        };
-        // Let the intensity fall off near the vision limits
-        if ((wavelength >= 380) && (wavelength < 420)) {
-            factor = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
-        } else if ((wavelength >= 420) && (wavelength < 701)) {
-            factor = 1.0;
-        } else if ((wavelength >= 701) && (wavelength < 781)) {
-            factor = 0.3 + 0.7 * (780 - wavelength) / (780 - 700);
-        } else {
-            factor = 0.0;
-        };
-        if (red !== 0) {
-            red = Math.round(IntensityMax * Math.pow(red * factor, Gamma));
-        }
-        if (green !== 0) {
-            green = Math.round(IntensityMax * Math.pow(green * factor, Gamma));
-        }
-        if (blue !== 0) {
-            blue = Math.round(IntensityMax * Math.pow(blue * factor, Gamma));
-        }
-        return [red, green, blue];
-    }
-
-    noteFromPitch(frequency) {
-        var noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
-        return NoteStrings[(Math.round(noteNum) + 69) % 12];
     }
 }
