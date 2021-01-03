@@ -37,7 +37,7 @@ function gotStream(stream) {
 
 const AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
 const MinusHalfPi = -0.5 * Math.PI;
-const SpectrumFont = "15px Georgia"
+const SpectrumFont = "15px Georgia";
 
 class SoundPaint {
     constructor(settings) {
@@ -46,6 +46,7 @@ class SoundPaint {
         this.fftsize = typeof settings.fftsize === "undefined" ? Math.pow(2, 12) : settings.fftsize;
         this.sampleRate = typeof settings.sampleRate === "undefined" ? 48000 : settings.sampleRate;
         this.maxFrequency = typeof settings.maxFrequency === "undefined" ? undefined : settings.maxFrequency;
+        this.processors = typeof settings.processors === "undefined" ? undefined : settings.processors;
         this.smoothingTimeConstant = typeof settings.smoothingTimeConstant === "undefined" ? 0 : settings.smoothingTimeConstant;
 
         // Set up the audio context & analyser.
@@ -98,8 +99,8 @@ class SoundPaint {
 
     init() {
         const colourMap = this.produceColourMap();
-        this.binColours = colourMap.colours.map((colour) => colour.toRgbString());
-        this.binComplements = colourMap.complements.map((colour) => colour.toRgbString());
+        this.binColours = colourMap.colours.map(c => c.toRgbString());
+        this.binComplements = colourMap.complements.map(c => c.toRgbString());
 
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
@@ -107,7 +108,18 @@ class SoundPaint {
             this.sampleRateLog.text(this.context.sampleRate);
             this.maxFrequencyLog.text(this.maxFrequency);
             this.maxBinsLog.text(this.maxBins);
-            this.renderColourMap(colourMap.colours.map((colour) => colour.toRgb()));
+            this.renderColourMap(colourMap.colours.map(c => c.toRgb()));
+        }
+
+        if (this.processors & SignalProcessors.ZScore) {
+            this.zScore.unhide();
+        } else {
+            this.zScore.hide();
+        }
+        if (this.processors & SignalProcessors.DuarteWatanabe) {
+            this.duarteWatanabe.unhide();
+        } else {
+            this.duarteWatanabe.hide();
         }
 
         this.renderSpectrum();
@@ -119,9 +131,7 @@ class SoundPaint {
         const frequencyData = Array.from(this.freqDomain.slice(0, this.maxBins));
 
         this.renderHistogram(frequencyData);
-
-        this.renderZScore(this.zScoreProcessor.signals(frequencyData));
-        this.renderDuarteWatanabe(DuarteWatanabe.signals(frequencyData, { mpd: 25 }));
+        this.renderPeaks(frequencyData);
 
         if (this.debug) {
             if (timestamp != undefined && this.lastStep != undefined) {
@@ -143,6 +153,15 @@ class SoundPaint {
         for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.histogram.barWidth) {
             barHeight = barHeightFactor * data[i];
             this.histogram.flexbar(x, this.histogram.height - barHeight, this.histogram.barWidth, barHeight, this.binColours[i]);
+        }
+    }
+
+    renderPeaks(frequencyData) {
+        if (this.processors & SignalProcessors.ZScore) {
+            this.renderZScore(this.zScoreProcessor.signals(frequencyData));
+        }
+        if (this.processors & SignalProcessors.DuarteWatanabe) {
+            this.renderDuarteWatanabe(DuarteWatanabe.signals(frequencyData, { mpd: 25 }));
         }
     }
 
@@ -228,7 +247,7 @@ class SoundPaint {
                 options.cameraPosition.vertical,
                 options.cameraPosition.distance
             ]);
-            graph3d.on('cameraPositionChange', (e) => {
+            graph3d.on('cameraPositionChange', e => {
                 this.cameraPosLog.text([
                     e.horizontal,
                     e.vertical,

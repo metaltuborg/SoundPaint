@@ -59,4 +59,12 @@ class FrequencyDomainCanvas {
         this.context.fillStyle = colour;
         this.context.fillRect(x, y, w, h);
     }
+
+    hide() {
+        $(this.canvas).css("display", "none");
+    }
+
+    unhide() {
+        $(this.canvas).css("display", "");
+    }
 }
