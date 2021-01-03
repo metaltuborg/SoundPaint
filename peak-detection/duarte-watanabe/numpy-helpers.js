@@ -1,4 +1,4 @@
-const helpers = {
+const dwHelpers = {
     A: function(a, f) {
         return a.map(f)
     },

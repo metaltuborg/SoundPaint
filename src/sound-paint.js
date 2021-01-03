@@ -79,11 +79,12 @@ class SoundPaint {
 
         this.histogram = new FrequencyDomainCanvas($("#histogram")[0], this.maxBins).init();
         this.zScore = new FrequencyDomainCanvas($("#zScore")[0], this.maxBins, 'ZScore').init();
+        this.duarteWatanabe = new FrequencyDomainCanvas($("#duarteWatanabe")[0], this.maxBins, 'Duarte Watanabe').init();
         this.spectrum = new FrequencyDomainCanvas($("#spectrum")[0], this.maxBins).init();
         this.colourMapContainer = $("#colourMap");
 
         // Set up other properties.
-        this.scorer = new ZScore({
+        this.zScoreProcessor = new ZScore({
             lag: 20,
             threshold: 3,
             influence: 0.5,
@@ -106,7 +107,7 @@ class SoundPaint {
             this.sampleRateLog.text(this.context.sampleRate);
             this.maxFrequencyLog.text(this.maxFrequency);
             this.maxBinsLog.text(this.maxBins);
-            this.renderColourMap(colourMap);
+            this.renderColourMap(colourMap.colours.map((colour) => colour.toRgb()));
         }
 
         this.renderSpectrum();
@@ -115,11 +116,12 @@ class SoundPaint {
 
     renderLoop(timestamp) {
         this.analyser.getByteFrequencyData(this.freqDomain);
-        let frequencyData = this.freqDomain.slice(0, this.maxBins);
+        const frequencyData = Array.from(this.freqDomain.slice(0, this.maxBins));
 
         this.renderHistogram(frequencyData);
 
-        this.renderZScore(this.scorer.signals(frequencyData));
+        this.renderZScore(this.zScoreProcessor.signals(frequencyData));
+        this.renderDuarteWatanabe(DuarteWatanabe.signals(frequencyData, { mpd: 25 }));
 
         if (this.debug) {
             if (timestamp != undefined && this.lastStep != undefined) {
@@ -154,6 +156,16 @@ class SoundPaint {
         }
     }
 
+    renderDuarteWatanabe(data) {
+        this.duarteWatanabe.blank(ColourUtility.Nero);
+
+        if (data != undefined && data.length > 0) {
+            for (let x in data) {
+                this.duarteWatanabe.fullbar(data[x] * this.duarteWatanabe.barWidth, this.binColours[data[x]]);
+            }
+        }
+    }
+
     renderSpectrum() {
         const gap = Math.floor(this.maxBins * 75 / this.spectrum.width);
         //        = 5*15px => 1 label each 5x label heights
@@ -178,9 +190,9 @@ class SoundPaint {
         let data = new vis.DataSet();
         binColours.forEach((rgb, i) => {
             data.add({
-                x: rgb[0],
-                y: rgb[1],
-                z: rgb[2],
+                x: rgb.r,
+                y: rgb.g,
+                z: rgb.b,
                 style: Math.floor(i * this.binWidth),
             });
         });
