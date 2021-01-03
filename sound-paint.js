@@ -39,8 +39,7 @@ const AudioContext = window.AudioContext || window.webkitAudioContext || window.
 const MinusHalfPi = -0.5 * Math.PI;
 const Nero = "rgb(32, 32, 32)";
 const White = "rgb(255, 255, 255)";
-const BlankSlateGeorgia = "15px Georgia";
-const ZScoreInterval = 100;
+const SpectrumFont = "15px Georgia"
 
 class SoundPaint {
     constructor(settings) {
@@ -70,7 +69,7 @@ class SoundPaint {
         this.maxFrequency = this.indexToAudioFrequency(this.maxBins);
 
         // Set up output containers.
-        this.debugLog = $("#logContainer");
+        this.debugLog = $("#debugContainer");
         this.binCountLog = $("#binCount");
         this.sampleRateLog = $("#sampleRate");
         this.maxFrequencyLog = $("#maxFrequency");
@@ -80,9 +79,9 @@ class SoundPaint {
         this.cameraPosLog = $("#cameraPos");
         this.freqDataLog = $("#freqData");
 
-        this.canvas = new FrequencyDomainCanvas($("#canvas")[0], this.maxBins).init();
-        this.signals = new FrequencyDomainCanvas($("#signalsCanvas")[0], this.maxBins).init();
-        this.blankSlate = new FrequencyDomainCanvas($("#blankSlate")[0], this.maxBins).init();
+        this.histogram = new FrequencyDomainCanvas($("#histogram")[0], this.maxBins).init();
+        this.zScore = new FrequencyDomainCanvas($("#zScore")[0], this.maxBins).init();
+        this.spectrum = new FrequencyDomainCanvas($("#spectrum")[0], this.maxBins).init();
         this.colourMapContainer = $("#colourMap");
 
         // Set up other properties.
@@ -91,7 +90,6 @@ class SoundPaint {
             threshold: 3,
             influence: 0.5,
         });
-        this.nextZScoreStep = ZScoreInterval;
 
         // Declare other properties in advance.
         this.binColours = undefined;
@@ -113,20 +111,17 @@ class SoundPaint {
             this.renderColourMap(colourMap);
         }
 
-        this.renderBlankSlate();
-        this.render();
+        this.renderSpectrum();
+        this.renderLoop();
     }
 
-    render(timestamp) {
+    renderLoop(timestamp) {
         this.analyser.getByteFrequencyData(this.freqDomain);
         let frequencyData = this.freqDomain.slice(0, this.maxBins);
 
-        this.renderOscilloscope(frequencyData);
+        this.renderHistogram(frequencyData);
 
-        // if (timestamp >= this.nextZScoreStep) {
-        this.renderSignals(this.scorer.signals(frequencyData));
-        // this.nextZScoreStep += ZScoreInterval;
-        // }
+        this.renderZScore(this.scorer.signals(frequencyData));
 
         if (this.debug) {
             if (timestamp != undefined && this.lastStep != undefined) {
@@ -137,46 +132,47 @@ class SoundPaint {
             this.freqDataLog.text(frequencyData.join(" "));
         }
 
-        window.requestAnimationFrame(this.render.bind(this));
+        window.requestAnimationFrame(this.renderLoop.bind(this));
     }
 
-    renderOscilloscope(data) {
-        const barHeightFactor = this.canvas.height / 255;
+    renderHistogram(data) {
+        const barHeightFactor = this.histogram.height / 255;
 
-        this.canvas.blank(Nero);
+        this.histogram.blank(Nero);
 
-        for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.canvas.barWidth) {
+        for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.histogram.barWidth) {
             barHeight = barHeightFactor * data[i];
-            this.canvas.flexbar(x, this.canvas.height - barHeight, this.canvas.barWidth, barHeight, this.binColours[i]);
+            this.histogram.flexbar(x, this.histogram.height - barHeight, this.histogram.barWidth, barHeight, this.binColours[i]);
         }
     }
 
-    renderSignals(data) {
-        this.signals.blank(Nero);
+    renderZScore(data) {
+        this.zScore.blank(Nero);
 
-        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.signals.barWidth) {
+        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.zScore.barWidth) {
             if (data[i] > 0) {
-                this.signals.fullbar(x, this.binColours[i]);
+                this.zScore.fullbar(x, this.binColours[i]);
             }
         }
     }
 
-    renderBlankSlate() {
-        const gap = Math.floor(this.maxBins * 75 / this.blankSlate.width); // = 5*15px => 1 label each 5x label heights
+    renderSpectrum() {
+        const gap = Math.floor(this.maxBins * 75 / this.spectrum.width);
+        //        = 5*15px => 1 label each 5x label heights
 
-        this.blankSlate.blank(Nero);
-        this.blankSlate.context.font = BlankSlateGeorgia;
+        this.spectrum.blank(Nero);
+        this.spectrum.context.font = SpectrumFont;
 
-        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.blankSlate.barWidth) {
-            this.blankSlate.fullbar(x, this.binColours[i]);
+        for (let i = 0, x = 0; i < this.maxBins; i++, x += this.spectrum.barWidth) {
+            this.spectrum.fullbar(x, this.binColours[i]);
         }
         for (let i = 0; i < this.maxBins; i += gap) {
-            this.blankSlate.context.save();
-            this.blankSlate.context.translate(i * this.blankSlate.barWidth + 10, this.blankSlate.height - 5);
-            this.blankSlate.context.rotate(MinusHalfPi);
-            this.blankSlate.context.strokeStyle = White;
-            this.blankSlate.context.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
-            this.blankSlate.context.restore();
+            this.spectrum.context.save();
+            this.spectrum.context.translate(i * this.spectrum.barWidth + 10, this.spectrum.height - 5);
+            this.spectrum.context.rotate(MinusHalfPi);
+            this.spectrum.context.strokeStyle = White;
+            this.spectrum.context.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
+            this.spectrum.context.restore();
         }
     }
 
@@ -217,7 +213,18 @@ class SoundPaint {
         this.colourMapContainer.removeAttr("hidden");
         const graph3d = new vis.Graph3d(this.colourMapContainer[0], data, options);
         if (this.debug) {
-            graph3d.on('cameraPositionChange', (e) => { this.cameraPosLog.text([e.horizontal, e.vertical, e.distance]) });
+            this.cameraPosLog.text([
+                options.cameraPosition.horizontal,
+                options.cameraPosition.vertical,
+                options.cameraPosition.distance
+            ]);
+            graph3d.on('cameraPositionChange', (e) => {
+                this.cameraPosLog.text([
+                    e.horizontal,
+                    e.vertical,
+                    e.distance
+                ]);
+            });
         }
     }
 

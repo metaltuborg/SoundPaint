@@ -59,7 +59,7 @@ class ColourUtility {
         return [red, green, blue];
     }
 
-    noteFromPitch(frequency) {
+    static noteFromPitch(frequency) {
         const noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
         return ColourUtility.NoteStrings[(Math.round(noteNum) + 69) % 12];
     }
