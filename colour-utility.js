@@ -1,4 +1,7 @@
 class ColourUtility {
+    static Nero = "rgb(32, 32, 32)";
+    static White = "rgb(255, 255, 255)";
+
     static NoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     static Gamma = 0.80;
     static MaxIntensity = 255;

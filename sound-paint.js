@@ -37,8 +37,6 @@ function gotStream(stream) {
 
 const AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
 const MinusHalfPi = -0.5 * Math.PI;
-const Nero = "rgb(32, 32, 32)";
-const White = "rgb(255, 255, 255)";
 const SpectrumFont = "15px Georgia"
 
 class SoundPaint {
@@ -80,7 +78,7 @@ class SoundPaint {
         this.freqDataLog = $("#freqData");
 
         this.histogram = new FrequencyDomainCanvas($("#histogram")[0], this.maxBins).init();
-        this.zScore = new FrequencyDomainCanvas($("#zScore")[0], this.maxBins).init();
+        this.zScore = new FrequencyDomainCanvas($("#zScore")[0], this.maxBins, 'ZScore').init();
         this.spectrum = new FrequencyDomainCanvas($("#spectrum")[0], this.maxBins).init();
         this.colourMapContainer = $("#colourMap");
 
@@ -93,14 +91,14 @@ class SoundPaint {
 
         // Declare other properties in advance.
         this.binColours = undefined;
+        this.binComplements = undefined;
         this.lastStep = undefined;
     }
 
     init() {
         const colourMap = this.produceColourMap();
-        this.binColours = colourMap.map((rgb) => {
-            return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-        });
+        this.binColours = colourMap.colours.map((colour) => colour.toRgbString());
+        this.binComplements = colourMap.complements.map((colour) => colour.toRgbString());
 
         if (this.debug) {
             this.debugLog.removeAttr("hidden");
@@ -138,7 +136,7 @@ class SoundPaint {
     renderHistogram(data) {
         const barHeightFactor = this.histogram.height / 255;
 
-        this.histogram.blank(Nero);
+        this.histogram.blank(ColourUtility.Nero);
 
         for (let i = 0, x = 0, barHeight; i < this.maxBins; i++, x += this.histogram.barWidth) {
             barHeight = barHeightFactor * data[i];
@@ -147,7 +145,7 @@ class SoundPaint {
     }
 
     renderZScore(data) {
-        this.zScore.blank(Nero);
+        this.zScore.blank(ColourUtility.Nero);
 
         for (let i = 0, x = 0; i < this.maxBins; i++, x += this.zScore.barWidth) {
             if (data[i] > 0) {
@@ -160,18 +158,18 @@ class SoundPaint {
         const gap = Math.floor(this.maxBins * 75 / this.spectrum.width);
         //        = 5*15px => 1 label each 5x label heights
 
-        this.spectrum.blank(Nero);
+        this.spectrum.blank(ColourUtility.Nero);
         this.spectrum.context.font = SpectrumFont;
 
         for (let i = 0, x = 0; i < this.maxBins; i++, x += this.spectrum.barWidth) {
-            this.spectrum.fullbar(x, this.binColours[i]);
+            this.spectrum.splitbar(x, this.binColours[i], this.binComplements[i], 0.95);
         }
         for (let i = 0; i < this.maxBins; i += gap) {
             this.spectrum.context.save();
             this.spectrum.context.translate(i * this.spectrum.barWidth + 10, this.spectrum.height - 5);
             this.spectrum.context.rotate(MinusHalfPi);
-            this.spectrum.context.strokeStyle = White;
-            this.spectrum.context.strokeText(Math.floor(i * this.binWidth).toString(), 0, 0);
+            this.spectrum.context.fillStyle = ColourUtility.White; // this.binComplements[i];
+            this.spectrum.context.fillText(Math.floor(i * this.binWidth).toString(), 0, 0);
             this.spectrum.context.restore();
         }
     }
@@ -230,13 +228,16 @@ class SoundPaint {
 
     produceColourMap() {
         const colours = [this.maxBins];
+        const complements = [this.maxBins];
 
         for (let i = 0; i < this.maxBins; i++) {
             const colourWavelength = this.indexToColourWavelength(i);
-            colours[i] = ColourUtility.nmToRGB(colourWavelength);
+            const rgb = ColourUtility.nmToRGB(colourWavelength);
+            colours[i] = tinycolor({ r: rgb[0], g: rgb[1], b: rgb[2] });
+            complements[i] = colours[i].complement();
         }
 
-        return colours;
+        return { colours: colours, complements: complements };
     }
 
     indexToAudioFrequency(index) {

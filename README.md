@@ -7,3 +7,4 @@ Draw something pretty with sound!
 * https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode
 * https://www.flutopedia.com/sound_color.htm
 * https://stackoverflow.com/questions/22583391/peak-signal-detection-in-realtime-timeseries-data/22640362#22640362
+* https://github.com/bgrins/TinyColor

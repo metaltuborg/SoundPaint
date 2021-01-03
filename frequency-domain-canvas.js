@@ -1,8 +1,16 @@
 class FrequencyDomainCanvas {
-    constructor(canvas, binCount) {
+    static LabelFont = "20px Georgia";
+
+    constructor(canvas, binCount, label) {
         this.canvas = canvas;
         this.context = canvas.getContext('2d');
         this.binCount = binCount;
+
+        this.renderLabel = false;
+        if (label != undefined) {
+            this.label = label;
+            this.renderLabel = true;
+        }
 
         this.width = undefined;
         this.height = undefined;
@@ -11,6 +19,7 @@ class FrequencyDomainCanvas {
 
     init() {
         this.setUpCanvasForHighPPI();
+        this.blank(ColourUtility.Nero);
         return this;
     }
 
@@ -27,11 +36,23 @@ class FrequencyDomainCanvas {
     blank(colour) {
         this.context.fillStyle = colour;
         this.context.fillRect(0, 0, this.width, this.height);
+        if (this.renderLabel) {
+            this.context.font = FrequencyDomainCanvas.LabelFont;
+            this.context.fillStyle = ColourUtility.White;
+            this.context.fillText(this.label, 10, 30);
+        }
     }
 
     fullbar(x, colour) {
         this.context.fillStyle = colour;
         this.context.fillRect(x, 0, this.barWidth, this.height);
+    }
+
+    splitbar(x, topColour, bottomColour, splitRatio = 0.5) {
+        this.context.fillStyle = topColour;
+        this.context.fillRect(x, 0, this.barWidth, this.height * splitRatio);
+        this.context.fillStyle = bottomColour;
+        this.context.fillRect(x, this.height * splitRatio, this.barWidth, this.height);
     }
 
     flexbar(x, y, w, h, colour) {
